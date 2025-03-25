@@ -75,14 +75,20 @@ const fetchDocument = async () => {
     console.log('✅ Response:', res.data)
     document.value = res.data.document
 
-    //  Mark user as active collaborator
+    // Mark user as active
     await axios.post(`/api/v1/documents/${props.id}/activate`, {}, {
       headers: { Authorization: `Bearer ${token}` }
     })
     console.log('✅ User marked as active')
 
   } catch (err) {
-    console.error('❌ Failed to fetch document or activate:', err)
+    console.error('❌ Failed to fetch document:', err)
+
+    if (err.response && err.response.status === 401) {
+      console.warn('🔐 Unauthenticated — redirecting to login.')
+      localStorage.removeItem('token')
+      window.location.href = '/login'  // OR use router.push if using Vue Router in setup
+    }
   }
 }
 
@@ -90,18 +96,26 @@ const fetchDocument = async () => {
 
 
 
-const broadcastEdit = async () => {
-  try {
-    await axios.put(`/api/v1/documents/${props.id}`, {
-      content: document.value.content
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-  } catch (err) {
-    console.error('Failed to update:', err)
-  }
+
+let typingTimeout = null;
+
+const broadcastEdit = () => {
+  if (typingTimeout) clearTimeout(typingTimeout)
+
+  typingTimeout = setTimeout(async () => {
+    try {
+      await axios.put(`/api/v1/documents/${props.id}`, {
+        content: document.value.content
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      // console.log('✏️ Document synced')
+    } catch (err) {
+      console.error('❌ Failed to update:', err)
+    }
+  }, 400) // Wait 400ms after typing stops
 }
 
 const listenToRealtimeUpdates = () => {
